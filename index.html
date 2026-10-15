@@ -1,0 +1,3091 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>SmooCho Runner: Escape the Choco Tsunami</title>
+    <meta name="description" content="Mobile-first 2.5D endless runner where Pinkie escapes the delicious melted Choco Tsunami across brownie platforms, kunafa hurdles, and chocolate rivers." />
+    <meta property="og:title" content="SmooCho Runner: Escape the Choco Tsunami" />
+    <meta property="og:description" content="Mobile-first 2.5D endless runner where Pinkie escapes the delicious melted Choco Tsunami across brownie platforms, kunafa hurdles, and chocolate rivers." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Google Fonts for candy-style typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;800&family=Quicksand:wght@500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Three.js r128 and loaders via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+
+    <style>
+      :root {
+        --color-raspberry: #E83375;
+        --color-raspberry-glow: #FF4B91;
+        --color-choco-dark: #26110B;
+        --color-choco-milk: #4A281E;
+        --color-brownie: #361A12;
+        --color-kunafa: #F3B544;
+        --color-mint: #06D6A0;
+        --color-mint-dark: #02946E;
+        --color-cream: #FFF7E6;
+        --font-main: 'Fredoka', 'Quicksand', sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html, body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        position: fixed;
+        inset: 0;
+        touch-action: none;
+        font-family: var(--font-main);
+        background: #1a0808;
+        color: #fff;
+      }
+
+      #game-canvas-container {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      /* -------------------------------------------------------------
+         HUD & OVERLAYS
+      -------------------------------------------------------------- */
+      #hud {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: env(safe-area-inset-top, 14px) env(safe-area-inset-right, 14px) env(safe-area-inset-bottom, 14px) env(safe-area-inset-left, 14px);
+      }
+
+      .hud-top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 6px 10px;
+      }
+
+      .hud-btn-group {
+        display: flex;
+        gap: 8px;
+        pointer-events: auto;
+      }
+
+      .frosted-btn {
+        background: rgba(255, 255, 255, 0.22);
+        border: 1.5px solid rgba(255, 255, 255, 0.45);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 8px 14px;
+        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        transition: transform 0.1s ease, background 0.15s ease;
+      }
+      .frosted-btn:active {
+        transform: scale(0.92);
+        background: rgba(255, 255, 255, 0.35);
+      }
+
+      .lives-container {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        background: rgba(40, 16, 12, 0.65);
+        border: 1.5px solid rgba(255, 255, 255, 0.3);
+        padding: 5px 12px;
+        border-radius: 9999px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      .heart-icon {
+        width: 24px;
+        height: 24px;
+        filter: drop-shadow(0 0 6px rgba(232, 51, 117, 0.7));
+        transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.25s ease;
+      }
+      .heart-icon.lost {
+        filter: grayscale(100%) brightness(0.35);
+        transform: scale(0.8);
+      }
+
+      .stats-pill {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        background: rgba(40, 16, 12, 0.65);
+        border: 1.5px solid rgba(255, 255, 255, 0.3);
+        padding: 5px 14px;
+        border-radius: 18px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-size: 12px;
+      }
+      .distance-val {
+        font-size: 19px;
+        font-weight: 800;
+        color: #FFF7E6;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      }
+      .high-score-val {
+        font-size: 11px;
+        color: #F3B544;
+        font-weight: 700;
+      }
+
+      /* Mid HUD Badges (Boost & Shield) */
+      .hud-mid-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 10px;
+        width: 100%;
+      }
+
+      .boost-gauge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(40, 16, 12, 0.65);
+        border: 1.5px solid rgba(255, 255, 255, 0.25);
+        padding: 6px 12px;
+        border-radius: 9999px;
+        font-weight: 800;
+        font-size: 14px;
+        color: #fff;
+      }
+      .boost-gauge.ready {
+        border-color: var(--color-mint);
+        box-shadow: 0 0 14px rgba(6, 214, 160, 0.6);
+      }
+      .strawberry-dots {
+        display: flex;
+        gap: 3px;
+      }
+      .berry-item {
+        font-size: 18px;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .berry-item.empty {
+        opacity: 0.25;
+        filter: grayscale(100%);
+      }
+
+      .shield-indicator {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.25);
+        border: 2px solid #99D5FF;
+        padding: 6px 12px;
+        border-radius: 9999px;
+        font-weight: 800;
+        font-size: 13px;
+        color: #E2F2FF;
+        box-shadow: 0 0 12px rgba(153, 213, 255, 0.6);
+      }
+      .shield-indicator.active {
+        display: flex;
+      }
+
+      /* Touch Controls */
+      .hud-bottom-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding: 10px;
+        width: 100%;
+        pointer-events: auto;
+      }
+
+      .touch-action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-radius: 26px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+        transition: transform 0.08s ease, filter 0.15s ease;
+        touch-action: none;
+      }
+      .touch-action-btn:active {
+        transform: scale(0.92);
+      }
+
+      .boost-btn {
+        width: 100px;
+        height: 74px;
+        background: linear-gradient(135deg, #06D6A0, #039E75);
+        border: 2px solid #5CFFD4;
+        color: #0b382c;
+      }
+      .boost-btn.disabled {
+        opacity: 0.4;
+        filter: grayscale(80%);
+        pointer-events: none;
+      }
+      .boost-btn .btn-title {
+        font-size: 17px;
+        font-weight: 900;
+        color: #ffffff;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      }
+      .boost-btn .btn-sub {
+        font-size: 11px;
+        color: #D3FFE9;
+        font-weight: 700;
+      }
+
+      .jump-btn {
+        width: 120px;
+        height: 84px;
+        background: linear-gradient(135deg, #FF4B91, #D81B60);
+        border: 2.5px solid #FFA1C5;
+        color: #fff;
+      }
+      .jump-btn .btn-title {
+        font-size: 21px;
+        font-weight: 900;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      }
+      .jump-btn .btn-sub {
+        font-size: 10px;
+        color: #FFE0ED;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+
+      /* Glider active badge in HUD */
+      .glider-status-badge {
+        position: absolute;
+        bottom: 105px;
+        right: 20px;
+        background: rgba(243, 181, 68, 0.95);
+        color: #3b2203;
+        padding: 5px 14px;
+        border-radius: 9999px;
+        font-weight: 800;
+        font-size: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: none;
+      }
+      .glider-status-badge.active {
+        display: block;
+      }
+
+      /* Hazard Border Vignette */
+      #hazard-vignette {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+        background: radial-gradient(circle at 5% 50%, rgba(255, 30, 0, 0.5) 0%, rgba(255, 30, 0, 0.2) 30%, transparent 65%);
+        box-shadow: inset 20px 0 35px rgba(255, 40, 20, 0.65);
+      }
+      #hazard-vignette.danger {
+        opacity: 1;
+        animation: hazardPulse 0.5s infinite alternate;
+      }
+      @keyframes hazardPulse {
+        from { opacity: 0.45; }
+        to { opacity: 1; }
+      }
+
+      #hazard-label {
+        position: absolute;
+        left: 20px;
+        top: 48%;
+        transform: translateY(-50%);
+        background: rgba(220, 20, 20, 0.92);
+        border: 2px solid #fff;
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-weight: 900;
+        font-size: 13px;
+        display: none;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      }
+      #hazard-vignette.danger #hazard-label {
+        display: block;
+      }
+
+      /* -------------------------------------------------------------
+         START / LOADING SCREEN
+      -------------------------------------------------------------- */
+      #splash-screen {
+        position: absolute;
+        inset: 0;
+        z-index: 100;
+        background: linear-gradient(135deg, #E83375 0%, #AA144E 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      #splash-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .brand-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 18px;
+      }
+
+      .logo-title-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .logo-smoo {
+        font-size: clamp(38px, 10vw, 68px);
+        font-weight: 900;
+        color: #FFA3C8;
+        line-height: 0.9;
+        text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        letter-spacing: -1px;
+      }
+      .logo-cho {
+        font-size: clamp(48px, 12vw, 84px);
+        font-weight: 900;
+        color: #FFF7E6;
+        line-height: 0.85;
+        text-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        letter-spacing: -2px;
+      }
+      .logo-sub {
+        font-size: clamp(12px, 3.2vw, 16px);
+        font-weight: 800;
+        color: #FFE4EE;
+        margin-top: 8px;
+        letter-spacing: 1px;
+        text-transform: lowercase;
+      }
+
+      .hero-preview-badge {
+        margin: 14px 0;
+        position: relative;
+        width: 140px;
+        height: 140px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .hero-avatar-canvas {
+        width: 135px;
+        height: 135px;
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35));
+      }
+
+      .game-subtitle {
+        font-size: clamp(15px, 4vw, 20px);
+        font-weight: 800;
+        color: #FEE75C;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        margin-bottom: 16px;
+      }
+
+      .progress-container {
+        width: min(280px, 80vw);
+        height: 14px;
+        background: rgba(0, 0, 0, 0.25);
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        border-radius: 9999px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .progress-bar-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #F3B544, #06D6A0);
+        border-radius: 9999px;
+        transition: width 0.3s ease;
+      }
+
+      .tap-start-btn {
+        background: linear-gradient(135deg, #06D6A0, #04AD81);
+        border: 3px solid #E2FFF6;
+        color: #0c3e31;
+        font-size: clamp(18px, 4.5vw, 24px);
+        font-weight: 900;
+        padding: 14px 34px;
+        border-radius: 9999px;
+        cursor: pointer;
+        box-shadow: 0 10px 30px rgba(6, 214, 160, 0.5), inset 0 2px 6px rgba(255, 255, 255, 0.5);
+        display: none;
+        letter-spacing: 0.5px;
+        transition: transform 0.15s ease;
+      }
+      .tap-start-btn:active {
+        transform: scale(0.94);
+      }
+      .tap-start-btn.ready {
+        display: inline-block;
+      }
+
+      .controls-tip-row {
+        margin-top: 18px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.88);
+        font-weight: 700;
+        line-height: 1.5;
+        max-width: 360px;
+      }
+
+      /* -------------------------------------------------------------
+         MODALS (ASSETS, PAUSE, GAME OVER)
+      -------------------------------------------------------------- */
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 80;
+        background: rgba(20, 8, 8, 0.85);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .modal-backdrop.open {
+        display: flex;
+      }
+
+      .modal-card {
+        background: #2D1412;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 24px;
+        width: min(420px, 92vw);
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 24px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        padding-bottom: 12px;
+      }
+      .modal-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #FFA3C8;
+      }
+      .modal-close-btn {
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 800;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .asset-field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .asset-label {
+        font-size: 13px;
+        font-weight: 700;
+        color: #F3B544;
+      }
+      .asset-desc {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.65);
+      }
+      .asset-file-input {
+        font-size: 12px;
+        color: #fff;
+        cursor: pointer;
+      }
+      .asset-file-input::file-selector-button {
+        background: var(--color-raspberry);
+        border: none;
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-family: var(--font-main);
+        cursor: pointer;
+        margin-right: 8px;
+      }
+
+      .asset-status-badge {
+        padding: 8px 12px;
+        background: rgba(6, 214, 160, 0.15);
+        border: 1px solid var(--color-mint);
+        border-radius: 12px;
+        font-size: 12px;
+        color: #A0F5DC;
+        font-weight: 600;
+      }
+
+      .game-over-header {
+        font-size: 26px;
+        font-weight: 900;
+        color: #FF5E8E;
+        text-align: center;
+      }
+      .stats-summary-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 14px;
+        border-radius: 16px;
+      }
+      .stat-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .stat-title {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .stat-number {
+        font-size: 22px;
+        font-weight: 900;
+        color: #FFF7E6;
+      }
+
+      .reward-coupon-card {
+        background: linear-gradient(135deg, #FFE873, #F3A824);
+        border: 2px dashed #6A3A05;
+        border-radius: 16px;
+        padding: 14px;
+        text-align: center;
+        color: #4A2402;
+      }
+      .coupon-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .coupon-code-val {
+        font-size: 24px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        margin: 4px 0;
+        user-select: all;
+        -webkit-user-select: all;
+      }
+      .coupon-sub {
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .big-modal-btn {
+        background: linear-gradient(135deg, #E83375, #B51752);
+        border: 2px solid #FFA1C5;
+        color: #fff;
+        padding: 14px;
+        border-radius: 18px;
+        font-size: 18px;
+        font-weight: 900;
+        cursor: pointer;
+        text-align: center;
+        box-shadow: 0 6px 18px rgba(232, 51, 117, 0.4);
+      }
+      .big-modal-btn:active {
+        transform: scale(0.96);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: none;
+        font-size: 15px;
+        padding: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- 2D View Three.js Canvas Container -->
+    <div id="game-canvas-container"></div>
+
+    <!-- Hazard Alert Vignette -->
+    <div id="hazard-vignette">
+      <div id="hazard-label">⚠️ TSUNAMI CLOSING IN!</div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+      <div class="hud-top-bar">
+        <div class="hud-btn-group">
+          <button class="frosted-btn" id="btn-pause" title="Pause Game">⏸</button>
+          <button class="frosted-btn" id="btn-assets" title="3D & Background Injector">⚙️ Assets</button>
+          <button class="frosted-btn" id="btn-mute" title="Toggle Sound">🔊</button>
+        </div>
+
+        <div class="lives-container" id="lives-display">
+          <svg class="heart-icon" id="heart-0" viewBox="0 0 24 24" fill="#E83375">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <svg class="heart-icon" id="heart-1" viewBox="0 0 24 24" fill="#E83375">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <svg class="heart-icon" id="heart-2" viewBox="0 0 24 24" fill="#E83375">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+
+        <div class="stats-pill">
+          <span class="distance-val" id="hud-distance">0 m</span>
+          <span class="high-score-val" id="hud-highscore">BEST: 0 m</span>
+        </div>
+      </div>
+
+      <div class="hud-mid-bar">
+        <div class="boost-gauge" id="boost-gauge">
+          <span>🍓 BOOST</span>
+          <div class="strawberry-dots">
+            <span class="berry-item empty" id="berry-0">🍓</span>
+            <span class="berry-item empty" id="berry-1">🍓</span>
+            <span class="berry-item empty" id="berry-2">🍓</span>
+          </div>
+        </div>
+
+        <div class="shield-indicator" id="shield-badge">
+          <span>🥛 MILK SHIELD</span>
+        </div>
+      </div>
+
+      <div class="glider-status-badge" id="glider-badge">🪂 GLIDING (LOW GRAVITY)</div>
+
+      <div class="hud-bottom-bar">
+        <div class="touch-action-btn boost-btn disabled" id="btn-boost-action">
+          <span class="btn-title">BOOST!</span>
+          <span class="btn-sub">SWIPE / D</span>
+        </div>
+
+        <div class="touch-action-btn jump-btn" id="btn-jump-action">
+          <span class="btn-title">JUMP!</span>
+          <span class="btn-sub">HOLD TO GLIDE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- INITIAL LOADING / SPLASH SCREEN -->
+    <div id="splash-screen">
+      <div class="brand-box">
+        <div class="logo-title-group">
+          <div class="logo-smoo">Smoo</div>
+          <div class="logo-cho">Cho</div>
+          <div class="logo-sub">chocolate creamy hugs</div>
+        </div>
+      </div>
+
+      <div class="game-subtitle">Escape the Choco Tsunami!</div>
+
+      <div class="hero-preview-badge">
+        <canvas id="preview-avatar-canvas" class="hero-avatar-canvas" width="256" height="256"></canvas>
+      </div>
+
+      <div class="progress-container" id="splash-prog-container">
+        <div class="progress-bar-fill" id="splash-prog-fill"></div>
+      </div>
+
+      <button class="tap-start-btn" id="btn-start-game">TAP TO ESCAPE</button>
+
+      <div class="controls-tip-row">
+        🕹️ <b>Controls:</b> Tap / Space to Jump • Double Tap to Double Hop<br>
+        Hold Jump to deploy Waffle Glider • Boost (D / Swipe) to sprint ahead!
+      </div>
+    </div>
+
+    <!-- 3D ASSET INJECTOR DRAWER -->
+    <div class="modal-backdrop" id="assets-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <span class="modal-title">⚙️ 3D Model & Assets Injector</span>
+          <button class="modal-close-btn" id="btn-close-assets">✕</button>
+        </div>
+
+        <div class="asset-status-badge" id="active-model-status">
+          Active: 2D Side-View Pinkie (Vanilla scoop + raspberry drip)
+        </div>
+
+        <div class="asset-field-group">
+          <label class="asset-label">1. Character 3D Model (.glb / .gltf / .fbx)</label>
+          <div class="asset-desc">Loads your 3D avatar, auto-scales to 1.8m, faces right for 2D side view.</div>
+          <input type="file" id="input-model-file" accept=".glb,.gltf,.fbx" class="asset-file-input">
+        </div>
+
+        <div class="asset-field-group">
+          <label class="asset-label">2. Run Animation (.fbx, optional)</label>
+          <div class="asset-desc">Supply a running animation if not already baked into the GLB.</div>
+          <input type="file" id="input-run-anim" accept=".fbx" class="asset-file-input">
+        </div>
+
+        <div class="asset-field-group">
+          <label class="asset-label">3. Jump Animation (.fbx, optional)</label>
+          <div class="asset-desc">Supply a jump animation if not already baked into the GLB.</div>
+          <input type="file" id="input-jump-anim" accept=".fbx" class="asset-file-input">
+        </div>
+
+        <div class="asset-field-group">
+          <label class="asset-label">4. Custom Parallax Background (.png / .jpg)</label>
+          <div class="asset-desc">Upload custom dessert landscape or sky art.</div>
+          <input type="file" id="input-bg-file" accept="image/*" class="asset-file-input">
+        </div>
+
+        <button class="big-modal-btn btn-secondary" id="btn-reset-avatar">Reset to 2D Side-View Pinkie</button>
+      </div>
+    </div>
+
+    <!-- PAUSE MODAL -->
+    <div class="modal-backdrop" id="pause-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <span class="modal-title">Game Paused</span>
+          <button class="modal-close-btn" id="btn-close-pause">✕</button>
+        </div>
+
+        <p style="text-align:center; font-size: 14px; color: #FFE0ED;">Take a breath! The Choco Tsunami is held in place.</p>
+
+        <button class="big-modal-btn" id="btn-resume-game">Resume Escape</button>
+        <button class="big-modal-btn btn-secondary" id="btn-pause-sound-toggle">Sound: ON</button>
+        <button class="big-modal-btn btn-secondary" id="btn-restart-from-pause">Restart Run</button>
+      </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div class="modal-backdrop" id="gameover-modal">
+      <div class="modal-card">
+        <div class="game-over-header">DRENCHED IN CHOCOLATE!</div>
+
+        <div class="stats-summary-grid">
+          <div class="stat-box">
+            <span class="stat-title">Distance Run</span>
+            <span class="stat-number" id="go-distance">0 m</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-title">High Score</span>
+            <span class="stat-number" id="go-best">0 m</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-title">Strawberries</span>
+            <span class="stat-number" id="go-berries">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-title">Sweet Score</span>
+            <span class="stat-number" id="go-score">0 pts</span>
+          </div>
+        </div>
+
+        <div class="reward-coupon-card">
+          <div class="coupon-title">SmooCho Escape Reward Unlocked!</div>
+          <div class="coupon-code-val">SMOOCHO10</div>
+          <div class="coupon-sub">Show this voucher for 10% off any ice cream or dessert treat!</div>
+        </div>
+
+        <button class="big-modal-btn" id="btn-retry-game">ESCAPE AGAIN</button>
+      </div>
+    </div>
+
+    <!-- SCRIPT ENGINE -->
+    <script>
+      (function() {
+        'use strict';
+
+        // -------------------------------------------------------------
+        // PROCEDURAL AUDIO SYNTHESIZER (Web Audio API)
+        // -------------------------------------------------------------
+        class SoundEngine {
+          constructor() {
+            this.ctx = null;
+            this.isMuted = false;
+            this.bgmPlaying = false;
+            this.bgmInterval = null;
+            this.stepCount = 0;
+            this.scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+            this.bassNotes = [130.81, 146.83, 164.81, 196.00];
+          }
+
+          init() {
+            if (!this.ctx) {
+              const AudioCtx = window.AudioContext || window.webkitAudioContext;
+              if (AudioCtx) {
+                this.ctx = new AudioCtx();
+              }
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+              this.ctx.resume();
+            }
+          }
+
+          toggleMute() {
+            this.isMuted = !this.isMuted;
+            if (this.isMuted) {
+              this.stopBGM();
+            } else {
+              this.startBGM();
+            }
+            return !this.isMuted;
+          }
+
+          playJump() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(260, now);
+            osc.frequency.exponentialRampToValueAtTime(640, now + 0.16);
+            gain.gain.setValueAtTime(0.24, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.19);
+          }
+
+          playDoubleJump() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(450, now);
+            osc.frequency.exponentialRampToValueAtTime(920, now + 0.15);
+            gain.gain.setValueAtTime(0.26, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.17);
+          }
+
+          playGliderWoosh() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.linearRampToValueAtTime(240, now + 0.15);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.26);
+          }
+
+          playStrawberry() {
+            if (this.isMuted || !this.ctx) return;
+            const notes = [659.25, 830.61, 987.77];
+            notes.forEach((freq, i) => {
+              const now = this.ctx.currentTime + i * 0.04;
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, now);
+              gain.gain.setValueAtTime(0.22, now);
+              gain.gain.exponentialRampToValueAtTime(0.005, now + 0.18);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now);
+              osc.stop(now + 0.19);
+            });
+          }
+
+          playShieldPickup() {
+            if (this.isMuted || !this.ctx) return;
+            const notes = [440, 554.37, 659.25, 880];
+            notes.forEach((freq, i) => {
+              const now = this.ctx.currentTime + i * 0.05;
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, now);
+              gain.gain.setValueAtTime(0.18, now);
+              gain.gain.exponentialRampToValueAtTime(0.008, now + 0.25);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now);
+              osc.stop(now + 0.26);
+            });
+          }
+
+          playGem() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.5, now);
+            osc.frequency.exponentialRampToValueAtTime(1567.98, now + 0.08);
+            gain.gain.setValueAtTime(0.18, now);
+            gain.gain.exponentialRampToValueAtTime(0.005, now + 0.12);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.13);
+          }
+
+          playPuddleSquish() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(60, now + 0.22);
+            gain.gain.setValueAtTime(0.28, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+          }
+
+          playBoost() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.35);
+            gain.gain.setValueAtTime(0.32, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.42);
+          }
+
+          playGameOver() {
+            if (this.isMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.6);
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.7);
+          }
+
+          startBGM() {
+            if (this.isMuted || this.bgmPlaying || !this.ctx) return;
+            this.bgmPlaying = true;
+            const tempo = 126;
+            const beatMs = (60 / tempo) * 1000 / 2;
+
+            this.bgmInterval = setInterval(() => {
+              if (!this.bgmPlaying || this.isMuted || !this.ctx) return;
+              const now = this.ctx.currentTime;
+              const step = this.stepCount % 16;
+              this.stepCount++;
+
+              if (step % 2 === 0) {
+                const bassOsc = this.ctx.createOscillator();
+                const bassGain = this.ctx.createGain();
+                bassOsc.type = 'triangle';
+                const bassIdx = Math.floor(step / 4) % this.bassNotes.length;
+                const bNote = this.bassNotes[bassIdx] || 130.81;
+                bassOsc.frequency.setValueAtTime(bNote, now);
+                bassGain.gain.setValueAtTime(0.12, now);
+                bassGain.gain.exponentialRampToValueAtTime(0.005, now + 0.18);
+                bassOsc.connect(bassGain);
+                bassGain.connect(this.ctx.destination);
+                bassOsc.start(now);
+                bassOsc.stop(now + 0.2);
+              }
+
+              const melodyPatterns = [0, 2, 4, 2, 5, 4, 3, 1, 0, 4, 7, 5, 4, 2, 1, 0];
+              const melPatternVal = melodyPatterns[step % melodyPatterns.length];
+              const melIndex = (typeof melPatternVal === 'number' ? melPatternVal : 0) % this.scale.length;
+              const mFreq = this.scale[melIndex] || 261.63;
+              const leadOsc = this.ctx.createOscillator();
+              const leadGain = this.ctx.createGain();
+              leadOsc.type = 'sine';
+              leadOsc.frequency.setValueAtTime(mFreq, now);
+              leadGain.gain.setValueAtTime(0.07, now);
+              leadGain.gain.exponentialRampToValueAtTime(0.002, now + 0.14);
+              leadOsc.connect(leadGain);
+              leadGain.connect(this.ctx.destination);
+              leadOsc.start(now);
+              leadOsc.stop(now + 0.15);
+            }, beatMs);
+          }
+
+          stopBGM() {
+            this.bgmPlaying = false;
+            if (this.bgmInterval) {
+              clearInterval(this.bgmInterval);
+              this.bgmInterval = null;
+            }
+          }
+        }
+
+        const audio = new SoundEngine();
+
+        // -------------------------------------------------------------
+        // PROCEDURAL 2D HERO SPRITE: EXACT "PINKIE" (Matching Reference)
+        // -------------------------------------------------------------
+        function renderPinkieSideView(ctx, cx, cy, frame, isGliding) {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.save();
+          // Center on 512x512 canvas coordinates
+          ctx.translate(cx, cy);
+
+          const cycle = frame * 0.45;
+          const stride = Math.sin(cycle);
+          const legBackAngle = -stride * 0.6;
+          const legFrontAngle = stride * 0.6;
+          const armBackAngle = stride * 0.55;
+          const armFrontAngle = -stride * 0.55;
+          const bob = isGliding ? 0 : Math.abs(Math.sin(cycle)) * 8;
+          const forwardLean = isGliding ? 0.04 : 0.08;
+
+          // Overhead Waffle Glider (When gliding)
+          if (isGliding) {
+            ctx.save();
+            ctx.translate(10, -170);
+            ctx.rotate(-0.06);
+
+            // Waffle Delta Wing
+            ctx.fillStyle = '#E6A74E';
+            ctx.strokeStyle = '#B37324';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(115, 0);
+            ctx.lineTo(-95, -30);
+            ctx.lineTo(-80, 26);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Dark Chocolate racing stripe
+            ctx.fillStyle = '#3D1E16';
+            ctx.beginPath();
+            ctx.moveTo(115, 0);
+            ctx.lineTo(-85, -4);
+            ctx.lineTo(-85, 8);
+            ctx.closePath();
+            ctx.fill();
+
+            // Waffle grid lines
+            ctx.strokeStyle = '#CD882A';
+            ctx.lineWidth = 3;
+            for (let x = -65; x <= 85; x += 30) {
+              ctx.beginPath();
+              ctx.moveTo(x, -20);
+              ctx.lineTo(x - 18, 18);
+              ctx.stroke();
+            }
+
+            // Harness sugar cords
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(50, 4);
+            ctx.lineTo(0, 110);
+            ctx.moveTo(-45, 4);
+            ctx.lineTo(-20, 110);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // 1. Back Gingerbread Leg & Boot (Layered Behind Scoop)
+          const drawBackLeg = () => {
+            ctx.save();
+            ctx.translate(-24, 62 - bob);
+            ctx.rotate(legBackAngle);
+
+            // Spiced cookie leg shaft
+            ctx.fillStyle = '#9C5828';
+            ctx.beginPath();
+            ctx.roundRect(-12, 0, 24, 46, 8);
+            ctx.fill();
+
+            // Gingerbread Boot
+            ctx.save();
+            ctx.translate(0, 36);
+            ctx.rotate(0.12);
+
+            // Red/Terracotta Boot Upper
+            const bootGrad = ctx.createLinearGradient(0, 0, 0, 45);
+            bootGrad.addColorStop(0, '#C24227');
+            bootGrad.addColorStop(1, '#9C2E17');
+            ctx.fillStyle = bootGrad;
+            ctx.beginPath();
+            ctx.roundRect(-20, 0, 58, 38, [14, 16, 8, 8]);
+            ctx.fill();
+
+            // Ankle Collar Cuff
+            ctx.fillStyle = '#A3331C';
+            ctx.beginPath();
+            ctx.roundRect(-18, -4, 34, 12, 6);
+            ctx.fill();
+
+            // Golden Biscuit Cookie Sole
+            ctx.fillStyle = '#E59F47';
+            ctx.beginPath();
+            ctx.roundRect(-22, 34, 62, 10, 4);
+            ctx.fill();
+
+            // Crisp White Laces
+            ctx.strokeStyle = '#FFF';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-6, 12);
+            ctx.lineTo(16, 12);
+            ctx.moveTo(-6, 21);
+            ctx.lineTo(16, 21);
+            ctx.stroke();
+
+            ctx.restore();
+            ctx.restore();
+          };
+          drawBackLeg();
+
+          // 2. Back Cookie Arm (Swinging backward in sprint)
+          ctx.save();
+          ctx.translate(-70, -8 - bob);
+          ctx.rotate(armBackAngle - 0.25);
+          const armGradL = ctx.createLinearGradient(-15, 0, 15, 45);
+          armGradL.addColorStop(0, '#C97A3C');
+          armGradL.addColorStop(1, '#9C5420');
+          ctx.fillStyle = armGradL;
+          ctx.beginPath();
+          ctx.roundRect(-15, 0, 30, 54, 15);
+          ctx.fill();
+          ctx.restore();
+
+          // 3. MAIN HERO SCOOP BODY (Tilted forward with sprint momentum)
+          ctx.save();
+          ctx.translate(0, -bob);
+          ctx.rotate(forwardLean);
+
+          // Soft Contact Shadow below Scoop
+          ctx.fillStyle = 'rgba(0,0,0,0.12)';
+          ctx.beginPath();
+          ctx.ellipse(0, 92, 92, 22, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Vanilla Scoop Ball (3D spherical shading with warm custard cream)
+          const scoopGrad = ctx.createRadialGradient(25, -20, 15, 0, 0, 105);
+          scoopGrad.addColorStop(0, '#FFFFFF');
+          scoopGrad.addColorStop(0.5, '#FFFBF0');
+          scoopGrad.addColorStop(0.82, '#F6EBD4');
+          scoopGrad.addColorStop(1, '#E4D1B0');
+          ctx.fillStyle = scoopGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, 98, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Distinctive 3D Ice Cream Scoop Skirt / Ruffled Rim at Bottom
+          ctx.fillStyle = '#EBD9BA';
+          ctx.beginPath();
+          ctx.arc(-72, 70, 22, 0, Math.PI);
+          ctx.arc(-36, 78, 25, 0, Math.PI);
+          ctx.arc(4, 82, 26, 0, Math.PI);
+          ctx.arc(44, 76, 24, 0, Math.PI);
+          ctx.arc(76, 68, 20, 0, Math.PI);
+          ctx.fill();
+
+          // Skirt highlight & cream folds
+          ctx.fillStyle = '#FFF5E0';
+          for (let x = -68; x <= 72; x += 36) {
+            ctx.beginPath();
+            ctx.arc(x, 72, 12, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // 4. Dripping Vivid Raspberry Glaze (Glossy Hot Pink with 3D Specular Sheen)
+          const glazeGrad = ctx.createLinearGradient(0, -98, 0, 65);
+          glazeGrad.addColorStop(0, '#FF2E88');
+          glazeGrad.addColorStop(0.5, '#F01C74');
+          glazeGrad.addColorStop(1, '#D81566');
+          ctx.fillStyle = glazeGrad;
+
+          ctx.beginPath();
+          // Crown hemisphere
+          ctx.arc(0, -10, 98, Math.PI, 0, false);
+          // Front lobe (right side)
+          ctx.bezierCurveTo(96, 22, 82, 25, 72, 48);
+          // Front dripping teardrop
+          ctx.bezierCurveTo(62, 68, 48, 68, 42, 40);
+          // Valley above eye
+          ctx.bezierCurveTo(34, 18, 12, 22, 4, 46);
+          // Deep organic drip 1
+          ctx.bezierCurveTo(-4, 78, -20, 78, -26, 46);
+          // Deep organic drip 2 (long teardrop down the back)
+          ctx.bezierCurveTo(-34, 18, -55, 26, -62, 74);
+          ctx.bezierCurveTo(-68, 98, -84, 98, -88, 55);
+          ctx.bezierCurveTo(-94, 25, -96, 5, -98, -10);
+          ctx.closePath();
+          ctx.fill();
+
+          // Glaze Specular Highlights (Ultra-glossy candy gloss shine)
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.beginPath();
+          ctx.ellipse(22, -62, 34, 14, 0.35, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Secondary specular glint
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          ctx.beginPath();
+          ctx.ellipse(-42, -54, 24, 10, -0.3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Teardrop drip gloss dots
+          ctx.beginPath();
+          ctx.ellipse(-76, 56, 5, 16, 0.1, 0, Math.PI * 2);
+          ctx.ellipse(-14, 54, 5, 12, -0.1, 0, Math.PI * 2);
+          ctx.ellipse(56, 50, 4, 10, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 5. TRUE SIDE-PROFILE KAWAII FACE (Facing Right into running direction)
+          // Expressive Side-View Chocolate Bead Eye
+          const eyeX = 36;
+          const eyeY = 2;
+          ctx.save();
+          ctx.translate(eyeX, eyeY);
+          ctx.rotate(0.08);
+
+          // Dark chocolate iris
+          ctx.fillStyle = '#180E0B';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 15, 20, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Upper large specular reflection
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.ellipse(3, -6, 6, 8, 0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Lower small twinkle reflection
+          ctx.beginPath();
+          ctx.arc(-4, 7, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Delicate cute eyelashes on upper corner
+          ctx.strokeStyle = '#180E0B';
+          ctx.lineWidth = 3.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(8, -12);
+          ctx.lineTo(16, -18);
+          ctx.moveTo(11, -5);
+          ctx.lineTo(19, -8);
+          ctx.stroke();
+          ctx.restore();
+
+          // Rosy Pink Cheek Blush (Side view glow)
+          ctx.fillStyle = 'rgba(255, 60, 140, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(34, 26, 18, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Cheerful Smiling Side-Profile Mouth
+          ctx.strokeStyle = '#23120C';
+          ctx.lineWidth = 4.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.arc(58, 14, 11, 0.4, Math.PI * 0.75);
+          ctx.stroke();
+
+          // Tiny cute tongue hint
+          ctx.fillStyle = '#FF5277';
+          ctx.beginPath();
+          ctx.arc(62, 20, 4.5, 0, Math.PI);
+          ctx.fill();
+
+          // 6. Tilted Golden-Brown Waffle Cone Cap
+          ctx.save();
+          ctx.translate(-46, -82);
+          ctx.rotate(-0.36); // tilted back at jaunty aerodynamic angle
+
+          // Waffle cone base gradient
+          const coneGrad = ctx.createLinearGradient(-35, -95, 35, 15);
+          coneGrad.addColorStop(0, '#F6AD45');
+          coneGrad.addColorStop(0.5, '#E2902D');
+          coneGrad.addColorStop(1, '#BE7018');
+          ctx.fillStyle = coneGrad;
+          ctx.strokeStyle = '#A3580D';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(0, -96);
+          ctx.lineTo(44, 14);
+          ctx.lineTo(-44, 14);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Crispy diamond waffle cross-hatch pattern
+          ctx.strokeStyle = '#8E4B0B';
+          ctx.lineWidth = 2.5;
+          for (let y = -65; y <= 5; y += 18) {
+            ctx.beginPath();
+            ctx.moveTo(-32, y);
+            ctx.lineTo(32, y);
+            ctx.stroke();
+          }
+          for (let x = -26; x <= 26; x += 18) {
+            ctx.beginPath();
+            ctx.moveTo(x - 12, 14);
+            ctx.lineTo(x / 2, -65);
+            ctx.stroke();
+          }
+
+          // Waffle cone rim cuff
+          ctx.fillStyle = '#FFE9CC';
+          ctx.strokeStyle = '#A3580D';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.ellipse(0, 14, 46, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.restore(); // Cone restore
+          ctx.restore(); // Body restore
+
+          // 7. Front Cookie Arm (Cheerfully pumping forward in run)
+          ctx.save();
+          ctx.translate(65, -12 - bob);
+          ctx.rotate(armFrontAngle + 0.55); // raised joyfully forward
+          const armGradR = ctx.createLinearGradient(0, 0, 20, 50);
+          armGradR.addColorStop(0, '#D68848');
+          armGradR.addColorStop(1, '#A05A25');
+          ctx.fillStyle = armGradR;
+          ctx.beginPath();
+          ctx.roundRect(-14, 0, 28, 58, 14);
+          ctx.fill();
+          ctx.restore();
+
+          // 8. Front Gingerbread Leg & Boot (Landing forward in stride)
+          const drawFrontLeg = () => {
+            ctx.save();
+            ctx.translate(20, 62 - bob);
+            ctx.rotate(legFrontAngle);
+
+            // Spiced cookie leg shaft
+            ctx.fillStyle = '#AC622E';
+            ctx.beginPath();
+            ctx.roundRect(-12, 0, 24, 46, 8);
+            ctx.fill();
+
+            // Gingerbread Boot
+            ctx.save();
+            ctx.translate(0, 36);
+            ctx.rotate(0.08);
+
+            // Red/Terracotta Boot Upper
+            const bootGrad = ctx.createLinearGradient(0, 0, 0, 45);
+            bootGrad.addColorStop(0, '#D9492B');
+            bootGrad.addColorStop(1, '#AD3219');
+            ctx.fillStyle = bootGrad;
+            ctx.beginPath();
+            ctx.roundRect(-20, 0, 60, 40, [15, 18, 8, 8]);
+            ctx.fill();
+
+            // Ankle Collar Cuff
+            ctx.fillStyle = '#B83A1E';
+            ctx.beginPath();
+            ctx.roundRect(-18, -4, 36, 12, 6);
+            ctx.fill();
+
+            // Golden Biscuit Sole
+            ctx.fillStyle = '#E8A44C';
+            ctx.beginPath();
+            ctx.roundRect(-22, 36, 64, 10, 4);
+            ctx.fill();
+
+            // White laces
+            ctx.strokeStyle = '#FFF';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-6, 13);
+            ctx.lineTo(18, 13);
+            ctx.moveTo(-6, 23);
+            ctx.lineTo(18, 23);
+            ctx.stroke();
+
+            ctx.restore();
+            ctx.restore();
+          };
+          drawFrontLeg();
+
+          ctx.restore(); // Final restore
+        }
+
+        // Draw preview avatar on splash screen canvas
+        const previewCanvas = document.getElementById('preview-avatar-canvas');
+        if (previewCanvas) {
+          previewCanvas.width = 128;
+          previewCanvas.height = 128;
+          const pctx = previewCanvas.getContext('2d');
+          pctx.save();
+          pctx.scale(0.25, 0.25);
+          renderPinkieSideView(pctx, 256, 255, 0, false);
+          pctx.restore();
+        }
+
+        // -------------------------------------------------------------
+        // PROCEDURAL CANVAS TEXTURES: EXACT BACKGROUND FROM REFERENCE
+        // -------------------------------------------------------------
+        function createBrownieTexture() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 512;
+          canvas.height = 128;
+          const ctx = canvas.getContext('2d');
+
+          // Rich dark chocolate brownie slab
+          ctx.fillStyle = '#361A12';
+          ctx.fillRect(0, 0, 512, 128);
+
+          // Crumb texture
+          for (let i = 0; i < 1800; i++) {
+            const x = Math.random() * 512;
+            const y = Math.random() * 128;
+            const r = Math.random() * 2 + 1;
+            ctx.fillStyle = Math.random() > 0.5 ? '#240F0A' : '#4E271D';
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Embedded golden baked walnut chunks
+          for (let i = 0; i < 35; i++) {
+            const x = Math.random() * 500 + 6;
+            const y = Math.random() * 115 + 8;
+            ctx.fillStyle = '#D8A76E';
+            ctx.beginPath();
+            ctx.ellipse(x, y, 7, 5, Math.random() * Math.PI, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Glossy dark chocolate top frosting line
+          ctx.fillStyle = '#210B06';
+          ctx.fillRect(0, 0, 512, 14);
+          ctx.fillStyle = 'rgba(255,255,255,0.22)';
+          ctx.fillRect(0, 2, 512, 3.5);
+
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.wrapS = THREE.RepeatWrapping;
+          tex.wrapT = THREE.RepeatWrapping;
+          tex.repeat.set(2, 1);
+          return tex;
+        }
+
+        function createKunafaTexture() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+
+          ctx.fillStyle = '#E8A738';
+          ctx.fillRect(0, 0, 256, 256);
+
+          ctx.strokeStyle = '#C98522';
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 350; i++) {
+            ctx.beginPath();
+            const y = Math.random() * 256;
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(80, y + (Math.random() - 0.5) * 40, 160, y + (Math.random() - 0.5) * 40, 256, y);
+            ctx.stroke();
+          }
+
+          for (let i = 0; i < 50; i++) {
+            ctx.fillStyle = Math.random() > 0.5 ? '#70C158' : '#88D870';
+            ctx.beginPath();
+            ctx.arc(Math.random() * 256, Math.random() * 256, Math.random() * 3 + 1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          const tex = new THREE.CanvasTexture(canvas);
+          return tex;
+        }
+
+        function createPuddleTexture() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 128;
+          const ctx = canvas.getContext('2d');
+
+          const grad = ctx.createRadialGradient(128, 64, 10, 128, 64, 100);
+          grad.addColorStop(0, '#150604');
+          grad.addColorStop(0.75, '#2B110C');
+          grad.addColorStop(1, 'rgba(43, 17, 12, 0)');
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(128, 64, 110, 50, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.beginPath();
+          ctx.ellipse(110, 50, 42, 12, -0.15, 0, Math.PI * 2);
+          ctx.fill();
+
+          const tex = new THREE.CanvasTexture(canvas);
+          return tex;
+        }
+
+        // Exact high-resolution reproduction of background.png
+        function createParallaxBackgroundTexture(customImage = null) {
+          if (customImage) {
+            const tex = new THREE.Texture(customImage);
+            tex.needsUpdate = true;
+            return tex;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = 2048;
+          canvas.height = 1024;
+          const ctx = canvas.getContext('2d');
+
+          // 1. SKY: Rich raspberry to vibrant magenta and golden sunset glow
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+          skyGrad.addColorStop(0, '#7A0E46');     // Deep royal plum / raspberry at apex
+          skyGrad.addColorStop(0.28, '#B81858');  // Rich hot raspberry pink
+          skyGrad.addColorStop(0.55, '#D81B60');  // Radiant magenta
+          skyGrad.addColorStop(0.78, '#FF8A3D');  // Warm glowing sunset apricot-amber
+          skyGrad.addColorStop(0.92, '#FFD54F');  // Luminous custard-gold horizon aura
+          skyGrad.addColorStop(1.0, '#FFE8A3');   // Soft cream light at base of sky
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, 2048, 1024);
+
+          // Concentric radiating sun rays / aura rings from the dessert sun
+          const auraCX = 1024;
+          const auraCY = 520;
+          for (let r = 140; r <= 1200; r += 90) {
+            ctx.strokeStyle = 'rgba(255, 235, 170, 0.055)';
+            ctx.lineWidth = 38;
+            ctx.beginPath();
+            ctx.arc(auraCX, auraCY, r, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          // Whimsical floating confectionary stars & sparkles in the sky
+          const drawStarSparkle = (x, y, rad) => {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.beginPath();
+            ctx.moveTo(x, y - rad);
+            ctx.quadraticCurveTo(x, y, x + rad, y);
+            ctx.quadraticCurveTo(x, y, x, y + rad);
+            ctx.quadraticCurveTo(x, y, x - rad, y);
+            ctx.quadraticCurveTo(x, y, x, y - rad);
+            ctx.fill();
+            ctx.restore();
+          };
+          drawStarSparkle(280, 120, 14);
+          drawStarSparkle(520, 80, 10);
+          drawStarSparkle(920, 150, 16);
+          drawStarSparkle(1240, 95, 12);
+          drawStarSparkle(1620, 140, 18);
+          drawStarSparkle(1880, 110, 11);
+
+          // 2. FLUFFY DESSERT CUMULUS CLOUDS (With soft pink marshmallow underbellies)
+          const drawCloud = (cx, cy, s) => {
+            ctx.save();
+            ctx.translate(cx, cy);
+            // Ambient rose-pink marshmallow shadow underneath
+            ctx.fillStyle = 'rgba(240, 170, 195, 0.7)';
+            ctx.beginPath();
+            ctx.arc(0, 12 * s, 38 * s, 0, Math.PI * 2);
+            ctx.arc(44 * s, 16 * s, 46 * s, 0, Math.PI * 2);
+            ctx.arc(92 * s, 12 * s, 36 * s, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pure billowy white cloud domes
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, 38 * s, 0, Math.PI * 2);
+            ctx.arc(42 * s, -16 * s, 48 * s, 0, Math.PI * 2);
+            ctx.arc(90 * s, 0, 36 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          };
+
+          // Clouds placed along the horizon
+          drawCloud(240, 220, 1.25);
+          drawCloud(680, 140, 0.95);
+          drawCloud(1180, 230, 0.90);
+          drawCloud(1560, 160, 1.55);
+
+          // 3. FAR LEFT: Majestic Tiered Chocolate Birthday Cake Mountain
+          ctx.save();
+          ctx.fillStyle = 'rgba(64, 24, 34, 0.88)';
+          // Tier 1 (bottom)
+          ctx.beginPath();
+          ctx.roundRect(110, 490, 460, 180, 28);
+          ctx.fill();
+          // Tier 2 (middle)
+          ctx.beginPath();
+          ctx.roundRect(170, 370, 340, 140, 22);
+          ctx.fill();
+          // Tier 3 (top)
+          ctx.beginPath();
+          ctx.roundRect(230, 270, 220, 120, 18);
+          ctx.fill();
+
+          // Vanilla cream frosting waterfalls cascading down cake tiers
+          ctx.fillStyle = '#FFF5F8';
+          ctx.beginPath();
+          ctx.roundRect(110, 490, 460, 26, [14, 14, 0, 0]);
+          ctx.roundRect(170, 370, 340, 24, [12, 12, 0, 0]);
+          ctx.roundRect(230, 270, 220, 22, [10, 10, 0, 0]);
+          ctx.fill();
+
+          // Frosting drip lobes
+          for (let x = 130; x <= 540; x += 45) {
+            ctx.beginPath();
+            ctx.arc(x, 516, 12, 0, Math.PI);
+            ctx.fill();
+          }
+          for (let x = 190; x <= 490; x += 45) {
+            ctx.beginPath();
+            ctx.arc(x, 394, 11, 0, Math.PI);
+            ctx.fill();
+          }
+
+          // Cake summit cherries with glossy shine
+          const drawCherry = (x, y, r) => {
+            ctx.fillStyle = '#B80D45';
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+            // Highlight
+            ctx.fillStyle = '#FF7A9E';
+            ctx.beginPath();
+            ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            // Green stem
+            ctx.strokeStyle = '#3D8B22';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x, y - r);
+            ctx.quadraticCurveTo(x + 12, y - r - 16, x + 8, y - r - 26);
+            ctx.stroke();
+          };
+          drawCherry(310, 260, 20);
+          drawCherry(355, 265, 16);
+          ctx.restore();
+
+          // 4. FAR RIGHT: Chocolate Volcanoes with Whipped Cream Snowy Summits
+          ctx.save();
+          // Volcano 1
+          ctx.fillStyle = '#5A261D';
+          ctx.beginPath();
+          ctx.moveTo(1400, 680);
+          ctx.lineTo(1560, 380);
+          ctx.lineTo(1720, 680);
+          ctx.closePath();
+          ctx.fill();
+
+          // Volcano 2 (larger dramatic cone)
+          ctx.fillStyle = '#421B14';
+          ctx.beginPath();
+          ctx.moveTo(1620, 680);
+          ctx.lineTo(1840, 290);
+          ctx.lineTo(2048, 680);
+          ctx.closePath();
+          ctx.fill();
+
+          // Molten dark chocolate lava trails
+          ctx.fillStyle = '#220B07';
+          ctx.beginPath();
+          ctx.moveTo(1540, 410);
+          ctx.bezierCurveTo(1550, 470, 1575, 490, 1565, 560);
+          ctx.bezierCurveTo(1555, 620, 1585, 630, 1585, 410);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(1810, 320);
+          ctx.bezierCurveTo(1830, 430, 1865, 460, 1850, 540);
+          ctx.bezierCurveTo(1835, 610, 1870, 620, 1870, 320);
+          ctx.fill();
+
+          // Fluffy whipped cream crowns on volcanoes
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(1560, 380, 36, 0, Math.PI * 2);
+          ctx.arc(1560, 355, 24, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(1840, 290, 44, 0, Math.PI * 2);
+          ctx.arc(1840, 260, 28, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // 5. MIDGROUND: Golden Rolling Kunafa & Kataifi Pastry Dunes
+          ctx.save();
+          // Golden baked filo pastry gradient
+          const duneGrad = ctx.createLinearGradient(0, 480, 0, 1024);
+          duneGrad.addColorStop(0, '#F6C874');
+          duneGrad.addColorStop(0.35, '#E8A740');
+          duneGrad.addColorStop(0.7, '#C97E1C');
+          duneGrad.addColorStop(1.0, '#A75F11');
+          ctx.fillStyle = duneGrad;
+
+          ctx.beginPath();
+          ctx.moveTo(0, 640);
+          ctx.bezierCurveTo(420, 510, 820, 680, 1240, 550);
+          ctx.bezierCurveTo(1540, 460, 1780, 590, 2048, 600);
+          ctx.lineTo(2048, 1024);
+          ctx.lineTo(0, 1024);
+          ctx.closePath();
+          ctx.fill();
+
+          // Shredded kataifi filo pastry golden texture
+          ctx.strokeStyle = 'rgba(175, 95, 15, 0.4)';
+          ctx.lineWidth = 3;
+          for (let i = 0; i < 480; i++) {
+            const x = Math.random() * 2048;
+            const y = 580 + Math.random() * 400;
+            ctx.beginPath();
+            ctx.arc(x, y, Math.random() * 32 + 8, 0, Math.PI * 0.65);
+            ctx.stroke();
+          }
+
+          // Green Pistachio Cream Pools on dune ridges
+          const drawPistachioPool = (x, y, rx, ry) => {
+            ctx.fillStyle = '#8BC94E';
+            ctx.beginPath();
+            ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Crushed pistachio nut crumbs
+            ctx.fillStyle = '#5A9428';
+            for (let i = 0; i < 20; i++) {
+              ctx.beginPath();
+              ctx.arc(x + (Math.random() - 0.5) * rx * 1.5, y + (Math.random() - 0.5) * ry * 1.5, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          };
+          drawPistachioPool(680, 610, 58, 28);
+          drawPistachioPool(880, 580, 68, 32);
+          drawPistachioPool(1340, 560, 52, 26);
+          drawPistachioPool(1920, 600, 58, 28);
+
+          // Striped Chocolate Spiral Pirouette / Pocky Wafer Bridges
+          const drawWaferBridge = (x1, y1, x2, y2) => {
+            ctx.save();
+            ctx.strokeStyle = '#D4892E';
+            ctx.lineWidth = 24;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Diagonal spiral chocolate ribbon stripes
+            ctx.strokeStyle = '#4A2318';
+            ctx.lineWidth = 7;
+            const len = Math.hypot(x2 - x1, y2 - y1);
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.translate(x1, y1);
+            ctx.rotate(angle);
+            for (let d = 10; d < len - 10; d += 24) {
+              ctx.beginPath();
+              ctx.moveTo(d - 6, -12);
+              ctx.lineTo(d + 6, 12);
+              ctx.stroke();
+            }
+            ctx.restore();
+          };
+          drawWaferBridge(260, 580, 600, 580);
+          drawWaferBridge(1440, 595, 1740, 595);
+
+          // Little Glass Milk Bottles ("Aseera") with red foil caps
+          const drawMilkBottle = (x, y) => {
+            ctx.save();
+            ctx.translate(x, y);
+            // Bottle glass + milk
+            ctx.fillStyle = '#FFFFFF';
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(-12, -45, 24, 45, [4, 4, 6, 6]);
+            ctx.fill();
+            ctx.stroke();
+
+            // Red foil cap
+            ctx.fillStyle = '#E83375';
+            ctx.fillRect(-8, -52, 16, 7);
+            ctx.restore();
+          };
+          drawMilkBottle(720, 565);
+          drawMilkBottle(1120, 580);
+          drawMilkBottle(1860, 545);
+
+          // 6. LOWER BASE: Rolling Chocolate Biscuit & Cookie Slopes
+          // Naturally flows to the bottom of the canvas with warm dessert shading
+          const baseDuneGrad = ctx.createLinearGradient(0, 780, 0, 1024);
+          baseDuneGrad.addColorStop(0, '#5A2C1F');
+          baseDuneGrad.addColorStop(0.5, '#421E14');
+          baseDuneGrad.addColorStop(1, '#2E140C');
+          ctx.fillStyle = baseDuneGrad;
+
+          ctx.beginPath();
+          ctx.moveTo(0, 820);
+          ctx.bezierCurveTo(480, 750, 960, 860, 1440, 780);
+          ctx.bezierCurveTo(1760, 720, 1920, 800, 2048, 810);
+          ctx.lineTo(2048, 1024);
+          ctx.lineTo(0, 1024);
+          ctx.closePath();
+          ctx.fill();
+
+          // Golden toasted biscuit crumb sparkles across the base slopes
+          for (let i = 0; i < 200; i++) {
+            ctx.fillStyle = Math.random() > 0.5 ? '#E5A548' : '#D4892A';
+            ctx.beginPath();
+            ctx.arc(Math.random() * 2048, 820 + Math.random() * 190, Math.random() * 3 + 1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.wrapS = THREE.RepeatWrapping;
+          tex.wrapT = THREE.ClampToEdgeWrapping;
+          return tex;
+        }
+
+        // -------------------------------------------------------------
+        // GAME STATE & FAIR RUNNER LOGIC
+        // -------------------------------------------------------------
+        const STATE = {
+          START: 0,
+          PLAYING: 1,
+          PAUSED: 2,
+          GAMEOVER: 3
+        };
+
+        const Game = {
+          state: STATE.START,
+          score: 0,
+          distance: 0,
+          highScore: parseInt(localStorage.getItem('smoocho_highscore') || '0', 10),
+          lives: 3,
+          strawberries: 0,
+          hasShield: false,
+          shieldTime: 0,
+          isGliding: false,
+          isBoosting: false,
+          boostTime: 0,
+          speedSlowMultiplier: 1.0,
+          slowTimer: 0,
+
+          // Physics Constants
+          baseRunSpeed: 11.5,
+          currentSpeed: 11.5,
+          gravity: -28,
+          jumpVelocity: 14.0,
+          doubleJumpVelocity: 12.2,
+
+          // Player Physics Entity
+          player: {
+            x: 0,
+            y: 0,
+            vy: 0,
+            width: 1.2,
+            height: 1.8,
+            onGround: true,
+            jumpsLeft: 2,
+            squashX: 1,
+            squashY: 1
+          },
+
+          // Tsunami Wall Entity (Starts WAY BEHIND in safe equilibrium!)
+          tsunami: {
+            distance: 24.0,         // starts 24 units safely behind the player!
+            safeEquilibrium: 20.0,  // comfortable safe running distance
+            minDist: 0.6,           // only catches player when <= 0.6
+            maxDist: 32.0,          // pushed far back during boost
+            x: -24.0
+          },
+
+          // World Objects
+          platforms: [],
+          hazards: [],
+          collectibles: [],
+          particles: [],
+
+          // Model / Avatar Mode
+          is3DModel: false,
+          modelMesh: null,
+          mixer: null,
+          runAction: null,
+          jumpAction: null,
+          spriteMesh: null,
+          spriteCanvas: null,
+          spriteCtx: null,
+          spriteTexture: null,
+          animFrame: 0
+        };
+
+        document.getElementById('hud-highscore').textContent = `BEST: ${Game.highScore} m`;
+
+        // -------------------------------------------------------------
+        // THREE.JS SCENE SETUP (PURE 2D SIDE VIEW)
+        // -------------------------------------------------------------
+        const container = document.getElementById('game-canvas-container');
+        const scene = new THREE.Scene();
+
+        // 2D Orthographic Camera for pure side-scrolling view (Zoomed out for expansive playfield view)
+        const VIEW_HEIGHT = 14.5;
+        let aspect = window.innerWidth / window.innerHeight;
+        let viewWidth = VIEW_HEIGHT * aspect;
+
+        const camera = new THREE.OrthographicCamera(
+          -viewWidth / 2,
+          viewWidth / 2,
+          VIEW_HEIGHT / 2,
+          -VIEW_HEIGHT / 2,
+          0.1,
+          100
+        );
+        camera.position.set(4.5, 4.2, 25);
+        camera.lookAt(4.5, 4.2, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        // Lighting Rig
+        const hemiLight = new THREE.HemisphereLight(0xFFE8F0, 0x471E16, 0.95);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xFFF2D8, 1.25);
+        dirLight.position.set(10, 16, 20);
+        scene.add(dirLight);
+
+        // Materials
+        const brownieTexture = createBrownieTexture();
+        const brownieMat = new THREE.MeshStandardMaterial({
+          map: brownieTexture,
+          roughness: 0.7,
+          metalness: 0.05
+        });
+
+        const kunafaTexture = createKunafaTexture();
+        const kunafaMat = new THREE.MeshStandardMaterial({
+          map: kunafaTexture,
+          roughness: 0.8,
+          metalness: 0.05
+        });
+
+        const puddleTexture = createPuddleTexture();
+        const puddleMat = new THREE.MeshStandardMaterial({
+          map: puddleTexture,
+          transparent: true,
+          roughness: 0.2,
+          metalness: 0.3
+        });
+
+        // Parallax Background Plane (Positioned in 2D background, sized for zoomed-out view)
+        const bgTexture = createParallaxBackgroundTexture();
+        bgTexture.repeat.set(2, 1);
+        const bgGeo = new THREE.PlaneGeometry(140, 32);
+        const bgMat = new THREE.MeshBasicMaterial({ map: bgTexture, depthWrite: false });
+        const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+        bgMesh.position.set(0, 6.5, -9);
+        scene.add(bgMesh);
+
+        // Player Group
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
+
+        // Procedural 2D Side-View Sprite (512x512 High-Definition Canvas)
+        const spriteCanvas = document.createElement('canvas');
+        spriteCanvas.width = 512;
+        spriteCanvas.height = 512;
+        const spriteCtx = spriteCanvas.getContext('2d');
+        const spriteTexture = new THREE.CanvasTexture(spriteCanvas);
+        spriteTexture.encoding = THREE.sRGBEncoding;
+
+        const spriteMat = new THREE.MeshBasicMaterial({
+          map: spriteTexture,
+          transparent: true,
+          alphaTest: 0.05,
+          side: THREE.DoubleSide
+        });
+        const spriteGeo = new THREE.PlaneGeometry(2.2, 2.2);
+        const spriteMesh = new THREE.Mesh(spriteGeo, spriteMat);
+        spriteMesh.position.y = 1.05;
+        playerGroup.add(spriteMesh);
+
+        Game.spriteMesh = spriteMesh;
+        Game.spriteCanvas = spriteCanvas;
+        Game.spriteCtx = spriteCtx;
+        Game.spriteTexture = spriteTexture;
+
+        // Soft Shadow below Pinkie
+        const shadowGeo = new THREE.PlaneGeometry(1.3, 0.4);
+        const shadowCanvas = document.createElement('canvas');
+        shadowCanvas.width = 64;
+        shadowCanvas.height = 32;
+        const sctx = shadowCanvas.getContext('2d');
+        const sgrad = sctx.createRadialGradient(32, 16, 2, 32, 16, 26);
+        sgrad.addColorStop(0, 'rgba(30, 10, 8, 0.6)');
+        sgrad.addColorStop(1, 'rgba(30, 10, 8, 0)');
+        sctx.fillStyle = sgrad;
+        sctx.fillRect(0, 0, 64, 32);
+        const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+        const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
+        const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+        shadowMesh.position.y = 0.02;
+        playerGroup.add(shadowMesh);
+
+        // Milky Bubble Shield
+        const shieldGeo = new THREE.SphereGeometry(1.3, 24, 24);
+        const shieldMat = new THREE.MeshStandardMaterial({
+          color: 0xEEF8FF,
+          transparent: true,
+          opacity: 0.45,
+          roughness: 0.1,
+          metalness: 0.1,
+          emissive: 0x88CCFF,
+          emissiveIntensity: 0.4
+        });
+        const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+        shieldMesh.position.y = 1.0;
+        shieldMesh.visible = false;
+        playerGroup.add(shieldMesh);
+        Game.shieldMesh = shieldMesh;
+
+        // -------------------------------------------------------------
+        // CHOCO TSUNAMI 2D SIDE-VIEW WAVE
+        // -------------------------------------------------------------
+        // In 2D side view, the tsunami is a massive curling wave of melted dark chocolate
+        const waveGeo = new THREE.PlaneGeometry(14, 14, 28, 20);
+        const waveMat = new THREE.MeshStandardMaterial({
+          color: 0x220D08,
+          roughness: 0.25,
+          metalness: 0.35,
+          side: THREE.DoubleSide
+        });
+        const tsunamiMesh = new THREE.Mesh(waveGeo, waveMat);
+        tsunamiMesh.position.set(-24, 5.0, 0.2);
+        scene.add(tsunamiMesh);
+
+        // Foaming crest on wave top in side view
+        const foamGeo = new THREE.CylinderGeometry(0.55, 0.75, 4, 16);
+        const foamMat = new THREE.MeshStandardMaterial({
+          color: 0x4D2016,
+          roughness: 0.35,
+          metalness: 0.2
+        });
+        const foamMesh = new THREE.Mesh(foamGeo, foamMat);
+        foamMesh.position.set(-24, 10.5, 0.3);
+        foamMesh.rotation.z = Math.PI / 2;
+        scene.add(foamMesh);
+
+        // -------------------------------------------------------------
+        // COLLECTIBLES & HAZARDS PROCEDURAL BUILDERS (SIDE VIEW)
+        // -------------------------------------------------------------
+        function createStrawberryMesh() {
+          const group = new THREE.Group();
+          const berryGeo = new THREE.ConeGeometry(0.42, 0.8, 12);
+          const berryMat = new THREE.MeshStandardMaterial({ color: 0xE81848, roughness: 0.3, metalness: 0.1 });
+          const berry = new THREE.Mesh(berryGeo, berryMat);
+          berry.rotation.x = Math.PI;
+          group.add(berry);
+
+          const leafGeo = new THREE.ConeGeometry(0.35, 0.15, 6);
+          const leafMat = new THREE.MeshStandardMaterial({ color: 0x40B030, roughness: 0.6 });
+          const leaves = new THREE.Mesh(leafGeo, leafMat);
+          leaves.position.y = 0.42;
+          group.add(leaves);
+
+          group.position.y = 1.0;
+          return group;
+        }
+
+        function createMilkBottleMesh() {
+          const group = new THREE.Group();
+          const bodyGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.75, 14);
+          const bodyMat = new THREE.MeshStandardMaterial({
+            color: 0xF5F9FF,
+            roughness: 0.15,
+            metalness: 0.15,
+            transparent: true,
+            opacity: 0.95
+          });
+          const body = new THREE.Mesh(bodyGeo, bodyMat);
+          group.add(body);
+
+          const capGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.16, 12);
+          const capMat = new THREE.MeshStandardMaterial({ color: 0xE83375, roughness: 0.4 });
+          const cap = new THREE.Mesh(capGeo, capMat);
+          cap.position.y = 0.45;
+          group.add(cap);
+
+          group.position.y = 1.0;
+          return group;
+        }
+
+        function createGemMesh() {
+          const gemGeo = new THREE.OctahedronGeometry(0.36);
+          const gemMat = new THREE.MeshStandardMaterial({
+            color: 0x06D6A0,
+            roughness: 0.1,
+            metalness: 0.3,
+            emissive: 0x028A66,
+            emissiveIntensity: 0.4
+          });
+          const gem = new THREE.Mesh(gemGeo, gemMat);
+          gem.position.y = 1.0;
+          return gem;
+        }
+
+        function createKunafaHurdleMesh() {
+          const group = new THREE.Group();
+          const hurdleGeo = new THREE.BoxGeometry(0.85, 1.15, 1.8);
+          const hurdle = new THREE.Mesh(hurdleGeo, kunafaMat);
+          hurdle.position.y = 0.58;
+          group.add(hurdle);
+
+          const topDecalGeo = new THREE.BoxGeometry(0.75, 0.08, 1.6);
+          const topDecalMat = new THREE.MeshStandardMaterial({ color: 0x70C158, roughness: 0.9 });
+          const decal = new THREE.Mesh(topDecalGeo, topDecalMat);
+          decal.position.y = 1.16;
+          group.add(decal);
+
+          return group;
+        }
+
+        function createPuddleMesh() {
+          const geo = new THREE.PlaneGeometry(2.4, 0.7);
+          const mesh = new THREE.Mesh(geo, puddleMat);
+          mesh.position.y = 0.03;
+          return mesh;
+        }
+
+        // -------------------------------------------------------------
+        // PROCEDURAL TRACK GENERATION
+        // -------------------------------------------------------------
+        let nextSpawnX = 0;
+
+        function spawnPlatform(x, length, y = 0) {
+          const geo = new THREE.BoxGeometry(length, 1.2, 2.5);
+          const mesh = new THREE.Mesh(geo, brownieMat);
+          mesh.position.set(x + length / 2, y - 0.6, 0);
+          scene.add(mesh);
+
+          const plat = {
+            mesh,
+            x: x,
+            length: length,
+            y: y,
+            topY: y
+          };
+          Game.platforms.push(plat);
+
+          // Spawn collectibles & hazards on platforms
+          if (x > 18) {
+            if (Math.random() < 0.4) {
+              const berryMesh = createStrawberryMesh();
+              berryMesh.position.set(x + length * 0.3, y + 0.5, 0);
+              scene.add(berryMesh);
+              Game.collectibles.push({ mesh: berryMesh, type: 'strawberry', x: berryMesh.position.x, y: berryMesh.position.y });
+            } else if (Math.random() < 0.25) {
+              const milkMesh = createMilkBottleMesh();
+              milkMesh.position.set(x + length * 0.7, y + 0.5, 0);
+              scene.add(milkMesh);
+              Game.collectibles.push({ mesh: milkMesh, type: 'shield', x: milkMesh.position.x, y: milkMesh.position.y });
+            } else if (Math.random() < 0.45) {
+              const gemMesh = createGemMesh();
+              gemMesh.position.set(x + length * 0.5, y + 0.6, 0);
+              scene.add(gemMesh);
+              Game.collectibles.push({ mesh: gemMesh, type: 'gem', x: gemMesh.position.x, y: gemMesh.position.y });
+            }
+
+            // Balanced spacing for obstacles so they never overlap or create impossible leaps
+            if (length > 7 && Math.random() < 0.3) {
+              const hurdle = createKunafaHurdleMesh();
+              const hx = x + length * 0.55;
+              hurdle.position.set(hx, y, 0);
+              scene.add(hurdle);
+              Game.hazards.push({ mesh: hurdle, type: 'hurdle', x: hx, y: y, width: 0.8, height: 1.1 });
+            } else if (length > 6 && Math.random() < 0.3) {
+              const puddle = createPuddleMesh();
+              const px = x + length * 0.5;
+              puddle.position.set(px, y + 0.03, 0);
+              scene.add(puddle);
+              Game.hazards.push({ mesh: puddle, type: 'puddle', x: px, y: y, width: 2.2, height: 0.2 });
+            }
+          }
+
+          return plat;
+        }
+
+        function initTrack() {
+          Game.platforms.forEach(p => scene.remove(p.mesh));
+          Game.hazards.forEach(h => scene.remove(h.mesh));
+          Game.collectibles.forEach(c => scene.remove(c.mesh));
+          Game.platforms = [];
+          Game.hazards = [];
+          Game.collectibles = [];
+
+          nextSpawnX = -12;
+          // Generous starting runway so player never trips at launch
+          spawnPlatform(nextSpawnX, 38, 0);
+          nextSpawnX += 38;
+
+          for (let i = 0; i < 8; i++) {
+            generateNextTrackSegment();
+          }
+        }
+
+        function generateNextTrackSegment() {
+          const gap = Math.random() * 2.8 + 2.0; // fair gaps: 2 to 4.8 units
+          const length = Math.random() * 7 + 6;  // platform length 6 to 13 units
+          const heights = [0, 1.2, 2.2];
+          const y = heights[Math.floor(Math.random() * heights.length)];
+          const x = nextSpawnX + gap;
+          spawnPlatform(x, length, y);
+          nextSpawnX = x + length;
+        }
+
+        // -------------------------------------------------------------
+        // PARTICLES & SPLASHES
+        // -------------------------------------------------------------
+        function spawnSplashes(x, y, color = 0x3D1E16, count = 16) {
+          for (let i = 0; i < count; i++) {
+            const geo = new THREE.SphereGeometry(Math.random() * 0.12 + 0.05, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({ color });
+            const p = new THREE.Mesh(geo, mat);
+            p.position.set(x, y + 0.2, (Math.random() - 0.5) * 0.5);
+            scene.add(p);
+            Game.particles.push({
+              mesh: p,
+              vx: (Math.random() - 0.5) * 7,
+              vy: Math.random() * 6 + 3,
+              vz: 0,
+              life: 1.0,
+              decay: Math.random() * 1.5 + 1.2
+            });
+          }
+        }
+
+        function spawnBerryParticles(x, y) {
+          spawnSplashes(x, y, 0xFF4B91, 14);
+        }
+
+        function updateParticles(dt) {
+          for (let i = Game.particles.length - 1; i >= 0; i--) {
+            const p = Game.particles[i];
+            p.mesh.position.x += p.vx * dt;
+            p.mesh.position.y += p.vy * dt;
+            p.vy -= 22 * dt;
+            p.life -= p.decay * dt;
+            p.mesh.scale.setScalar(Math.max(0.01, p.life));
+            if (p.life <= 0) {
+              scene.remove(p.mesh);
+              Game.particles.splice(i, 1);
+            }
+          }
+        }
+
+        // -------------------------------------------------------------
+        // CONTROLS & INPUT HANDLING
+        // -------------------------------------------------------------
+        function triggerJump() {
+          if (Game.state !== STATE.PLAYING) return;
+          if (Game.player.onGround) {
+            Game.player.vy = Game.jumpVelocity;
+            Game.player.onGround = false;
+            Game.player.jumpsLeft = 1;
+            Game.player.squashY = 1.35;
+            Game.player.squashX = 0.75;
+            audio.playJump();
+            spawnSplashes(Game.player.x, Game.player.y, 0xFFF5E0, 6);
+          } else if (Game.player.jumpsLeft > 0) {
+            Game.player.vy = Game.doubleJumpVelocity;
+            Game.player.jumpsLeft = 0;
+            Game.player.squashY = 1.3;
+            Game.player.squashX = 0.8;
+            audio.playDoubleJump();
+            spawnSplashes(Game.player.x, Game.player.y, 0xFF4B91, 8);
+          }
+        }
+
+        function startGlide() {
+          if (Game.state !== STATE.PLAYING) return;
+          if (!Game.player.onGround && Game.player.vy < 1.0) {
+            Game.isGliding = true;
+            document.getElementById('glider-badge').classList.add('active');
+            audio.playGliderWoosh();
+          }
+        }
+
+        function stopGlide() {
+          Game.isGliding = false;
+          document.getElementById('glider-badge').classList.remove('active');
+        }
+
+        function triggerBoost() {
+          if (Game.state !== STATE.PLAYING) return;
+          if (Game.strawberries > 0 && !Game.isBoosting) {
+            Game.strawberries--;
+            Game.isBoosting = true;
+            Game.boostTime = 2.4;
+            updateBoostUI();
+            audio.playBoost();
+            spawnBerryParticles(Game.player.x, Game.player.y + 0.6);
+            // Push tsunami far back on rocket sprint!
+            Game.tsunami.distance = Math.min(Game.tsunami.maxDist, Game.tsunami.distance + 8.0);
+          }
+        }
+
+        window.addEventListener('keydown', (e) => {
+          if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+            e.preventDefault();
+            if (!e.repeat) triggerJump();
+            startGlide();
+          } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+            e.preventDefault();
+            triggerBoost();
+          } else if (e.code === 'KeyP' || e.code === 'Escape') {
+            e.preventDefault();
+            togglePause();
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+            stopGlide();
+          }
+        });
+
+        const btnJump = document.getElementById('btn-jump-action');
+        btnJump.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          triggerJump();
+          startGlide();
+        });
+        btnJump.addEventListener('pointerup', (e) => {
+          e.preventDefault();
+          stopGlide();
+        });
+        btnJump.addEventListener('pointercancel', stopGlide);
+
+        const btnBoost = document.getElementById('btn-boost-action');
+        btnBoost.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          triggerBoost();
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        container.addEventListener('pointerdown', (e) => {
+          touchStartX = e.clientX;
+          touchStartY = e.clientY;
+        });
+        container.addEventListener('pointerup', (e) => {
+          const dx = e.clientX - touchStartX;
+          const dy = e.clientY - touchStartY;
+          if (dx > 45 && Math.abs(dy) < 50) {
+            triggerBoost();
+          }
+        });
+
+        // -------------------------------------------------------------
+        // UI UPDATERS
+        // -------------------------------------------------------------
+        function updateLivesUI() {
+          for (let i = 0; i < 3; i++) {
+            const heart = document.getElementById(`heart-${i}`);
+            if (i < Game.lives) {
+              heart.classList.remove('lost');
+            } else {
+              heart.classList.add('lost');
+            }
+          }
+        }
+
+        function updateBoostUI() {
+          for (let i = 0; i < 3; i++) {
+            const berry = document.getElementById(`berry-${i}`);
+            if (i < Game.strawberries) {
+              berry.classList.remove('empty');
+            } else {
+              berry.classList.add('empty');
+            }
+          }
+          const gauge = document.getElementById('boost-gauge');
+          const btn = document.getElementById('btn-boost-action');
+          if (Game.strawberries > 0) {
+            gauge.classList.add('ready');
+            btn.classList.remove('disabled');
+          } else {
+            gauge.classList.remove('ready');
+            btn.classList.add('disabled');
+          }
+        }
+
+        function updateShieldUI() {
+          const badge = document.getElementById('shield-badge');
+          if (Game.hasShield) {
+            badge.classList.add('active');
+            if (Game.shieldMesh) Game.shieldMesh.visible = true;
+          } else {
+            badge.classList.remove('active');
+            if (Game.shieldMesh) Game.shieldMesh.visible = false;
+          }
+        }
+
+        // -------------------------------------------------------------
+        // RUNTIME 3D MODEL & ASSET INJECTOR (ROTATED FOR 2D SIDE VIEW)
+        // -------------------------------------------------------------
+        const gltfLoader = new THREE.GLTFLoader();
+        let fbxLoader = null;
+        if (THREE.FBXLoader) {
+          fbxLoader = new THREE.FBXLoader();
+        }
+
+        function setModelStatus(text) {
+          document.getElementById('active-model-status').textContent = text;
+        }
+
+        function apply3DModel(object3d, animations = []) {
+          if (Game.modelMesh) {
+            playerGroup.remove(Game.modelMesh);
+            Game.modelMesh = null;
+          }
+
+          const box = new THREE.Box3().setFromObject(object3d);
+          const size = box.getSize(new THREE.Vector3());
+          const targetHeight = 1.8;
+          const scale = size.y > 0 ? (targetHeight / size.y) : 1;
+          object3d.scale.set(scale, scale, scale);
+
+          box.setFromObject(object3d);
+          const center = box.getCenter(new THREE.Vector3());
+          object3d.position.x = -center.x;
+          object3d.position.y = -box.min.y;
+          object3d.position.z = -center.z;
+
+          // Rotate 3D avatar so it faces towards the right down the track in side view!
+          object3d.rotation.y = Math.PI / 2;
+
+          if (animations && animations.length > 0) {
+            Game.mixer = new THREE.AnimationMixer(object3d);
+            const animList = animations;
+            const runClip = animList.find(a => /run|walk|sprint/i.test(a.name)) || animList[0];
+            const jumpClip = animList.find(a => /jump|leap|hop/i.test(a.name)) || animList[1] || animList[0];
+
+            if (runClip) {
+              Game.runAction = Game.mixer.clipAction(runClip);
+              Game.runAction.play();
+            }
+            if (jumpClip) {
+              Game.jumpAction = Game.mixer.clipAction(jumpClip);
+            }
+          }
+
+          Game.spriteMesh.visible = false;
+          Game.modelMesh = object3d;
+          playerGroup.add(object3d);
+          Game.is3DModel = true;
+        }
+
+        const inputModel = document.getElementById('input-model-file');
+        inputModel.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const url = URL.createObjectURL(file);
+          const ext = file.name.split('.').pop().toLowerCase();
+          setModelStatus(`Loading ${file.name}...`);
+
+          if (ext === 'glb' || ext === 'gltf') {
+            gltfLoader.load(url, (gltf) => {
+              apply3DModel(gltf.scene, gltf.animations);
+              setModelStatus(`Active 3D: ${file.name} (Side view enabled)`);
+            }, undefined, (err) => {
+              console.error(err);
+              setModelStatus(`Error loading ${file.name}`);
+            });
+          } else if (ext === 'fbx' && fbxLoader) {
+            fbxLoader.load(url, (fbx) => {
+              apply3DModel(fbx, fbx.animations);
+              setModelStatus(`Active 3D: ${file.name} (Side view enabled)`);
+            }, undefined, (err) => {
+              console.error(err);
+              setModelStatus(`Error loading ${file.name}`);
+            });
+          }
+        });
+
+        const inputRun = document.getElementById('input-run-anim');
+        inputRun.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file || !fbxLoader || !Game.modelMesh) return;
+          const url = URL.createObjectURL(file);
+          fbxLoader.load(url, (anim) => {
+            if (anim.animations.length > 0) {
+              if (!Game.mixer) Game.mixer = new THREE.AnimationMixer(Game.modelMesh);
+              Game.runAction = Game.mixer.clipAction(anim.animations[0]);
+              Game.runAction.play();
+              setModelStatus(`Bound Run Animation: ${file.name}`);
+            }
+          });
+        });
+
+        const inputJump = document.getElementById('input-jump-anim');
+        inputJump.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file || !fbxLoader || !Game.modelMesh) return;
+          const url = URL.createObjectURL(file);
+          fbxLoader.load(url, (anim) => {
+            if (anim.animations.length > 0) {
+              if (!Game.mixer) Game.mixer = new THREE.AnimationMixer(Game.modelMesh);
+              Game.jumpAction = Game.mixer.clipAction(anim.animations[0]);
+              setModelStatus(`Bound Jump Animation: ${file.name}`);
+            }
+          });
+        });
+
+        const inputBg = document.getElementById('input-bg-file');
+        inputBg.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const img = new Image();
+          img.src = URL.createObjectURL(file);
+          img.onload = () => {
+            const newTex = new THREE.Texture(img);
+            newTex.needsUpdate = true;
+            newTex.wrapS = THREE.RepeatWrapping;
+            newTex.repeat.set(1, 1);
+            bgMesh.material.map = newTex;
+            bgMesh.material.needsUpdate = true;
+          };
+        });
+
+        document.getElementById('btn-reset-avatar').addEventListener('click', () => {
+          if (Game.modelMesh) {
+            playerGroup.remove(Game.modelMesh);
+            Game.modelMesh = null;
+          }
+          Game.mixer = null;
+          Game.runAction = null;
+          Game.jumpAction = null;
+          Game.spriteMesh.visible = true;
+          Game.is3DModel = false;
+          setModelStatus("Active: 2D Side-View Pinkie (Vanilla scoop + raspberry drip)");
+        });
+
+        // Modals
+        const assetsModal = document.getElementById('assets-modal');
+        const pauseModal = document.getElementById('pause-modal');
+        const gameoverModal = document.getElementById('gameover-modal');
+
+        document.getElementById('btn-assets').addEventListener('click', () => {
+          if (Game.state === STATE.PLAYING) Game.state = STATE.PAUSED;
+          assetsModal.classList.add('open');
+        });
+        document.getElementById('btn-close-assets').addEventListener('click', () => {
+          assetsModal.classList.remove('open');
+          if (Game.state === STATE.PAUSED) Game.state = STATE.PLAYING;
+        });
+
+        function togglePause() {
+          if (Game.state === STATE.PLAYING) {
+            Game.state = STATE.PAUSED;
+            pauseModal.classList.add('open');
+          } else if (Game.state === STATE.PAUSED) {
+            Game.state = STATE.PLAYING;
+            pauseModal.classList.remove('open');
+          }
+        }
+
+        document.getElementById('btn-pause').addEventListener('click', togglePause);
+        document.getElementById('btn-close-pause').addEventListener('click', togglePause);
+        document.getElementById('btn-resume-game').addEventListener('click', togglePause);
+
+        const btnMute = document.getElementById('btn-mute');
+        const btnPauseSound = document.getElementById('btn-pause-sound-toggle');
+        function updateMuteButtons(unmuted) {
+          btnMute.textContent = unmuted ? '🔊' : '🔇';
+          btnPauseSound.textContent = unmuted ? 'Sound: ON' : 'Sound: OFF';
+        }
+        btnMute.addEventListener('click', () => {
+          const unmuted = audio.toggleMute();
+          updateMuteButtons(unmuted);
+        });
+        btnPauseSound.addEventListener('click', () => {
+          const unmuted = audio.toggleMute();
+          updateMuteButtons(unmuted);
+        });
+
+        document.getElementById('btn-restart-from-pause').addEventListener('click', () => {
+          pauseModal.classList.remove('open');
+          startGame();
+        });
+        document.getElementById('btn-retry-game').addEventListener('click', () => {
+          gameoverModal.classList.remove('open');
+          startGame();
+        });
+
+        // -------------------------------------------------------------
+        // GAME LIFECYCLE
+        // -------------------------------------------------------------
+        function triggerGameOver() {
+          if (Game.state === STATE.GAMEOVER) return;
+          Game.state = STATE.GAMEOVER;
+          audio.playGameOver();
+          spawnSplashes(Game.player.x, Game.player.y + 1, 0x240F0A, 35);
+
+          if (Game.distance > Game.highScore) {
+            Game.highScore = Game.distance;
+            localStorage.setItem('smoocho_highscore', Game.highScore.toString());
+            document.getElementById('hud-highscore').textContent = `BEST: ${Game.highScore} m`;
+          }
+
+          document.getElementById('go-distance').textContent = `${Game.distance} m`;
+          document.getElementById('go-best').textContent = `${Game.highScore} m`;
+          document.getElementById('go-berries').textContent = `${Game.strawberries} 🍓`;
+          document.getElementById('go-score').textContent = `${Game.score} pts`;
+
+          setTimeout(() => {
+            gameoverModal.classList.add('open');
+          }, 600);
+        }
+
+        function startGame() {
+          Game.state = STATE.PLAYING;
+          Game.score = 0;
+          Game.distance = 0;
+          Game.lives = 3;
+          Game.strawberries = 0;
+          Game.hasShield = false;
+          Game.isBoosting = false;
+          Game.isGliding = false;
+          Game.slowTimer = 0;
+          Game.speedSlowMultiplier = 1.0;
+          Game.currentSpeed = Game.baseRunSpeed;
+
+          // Player Reset
+          Game.player.x = 0;
+          Game.player.y = 0;
+          Game.player.vy = 0;
+          Game.player.onGround = true;
+          Game.player.jumpsLeft = 2;
+          Game.player.squashX = 1;
+          Game.player.squashY = 1;
+
+          // Tsunami Reset (WAY BEHIND in safety buffer!)
+          Game.tsunami.distance = 24.0;
+          Game.tsunami.x = -24.0;
+
+          updateLivesUI();
+          updateBoostUI();
+          updateShieldUI();
+          initTrack();
+
+          audio.init();
+          audio.startBGM();
+        }
+
+        const splashScreen = document.getElementById('splash-screen');
+        const startBtn = document.getElementById('btn-start-game');
+        startBtn.addEventListener('click', () => {
+          splashScreen.classList.add('hidden');
+          startGame();
+        });
+
+        let prog = 0;
+        const progFill = document.getElementById('splash-prog-fill');
+        const loadTimer = setInterval(() => {
+          prog += 18;
+          if (progFill) progFill.style.width = `${Math.min(100, prog)}%`;
+          if (prog >= 100) {
+            clearInterval(loadTimer);
+            document.getElementById('splash-prog-container').style.display = 'none';
+            startBtn.classList.add('ready');
+          }
+        }, 100);
+
+        // -------------------------------------------------------------
+        // MAIN GAME TICK & FAIR TSUNAMI CHASE LOGIC
+        // -------------------------------------------------------------
+        const clock = new THREE.Clock();
+
+        function animate() {
+          requestAnimationFrame(animate);
+
+          const dt = Math.min(clock.getDelta(), 0.08);
+
+          if (Game.state === STATE.PLAYING) {
+            // Horizontal speed progression
+            const targetBaseSpeed = Game.baseRunSpeed + Math.min(8, Game.distance * 0.006);
+            let speed = targetBaseSpeed * Game.speedSlowMultiplier;
+
+            // Strawberry Rocket Boost
+            if (Game.isBoosting) {
+              speed += 12.0;
+              Game.boostTime -= dt;
+              if (Game.boostTime <= 0) {
+                Game.isBoosting = false;
+              }
+              if (Math.random() < 0.45) {
+                spawnBerryParticles(Game.player.x - 0.4, Game.player.y + 0.5);
+              }
+            }
+
+            // Molten Puddle Slow Recovery
+            if (Game.slowTimer > 0) {
+              Game.slowTimer -= dt;
+              if (Game.slowTimer <= 0) {
+                Game.speedSlowMultiplier = 1.0;
+              }
+            }
+
+            // Advance Player
+            Game.player.x += speed * dt;
+            Game.distance = Math.floor(Game.player.x);
+            Game.score += Math.round(speed * dt * 5);
+
+            document.getElementById('hud-distance').textContent = `${Game.distance} m`;
+
+            // Vertical Physics & Low-Gravity Glider
+            let effectiveGravity = Game.gravity;
+            if (Game.isGliding && Game.player.vy < 0) {
+              effectiveGravity = Game.gravity * 0.25; // 75% gravity reduction
+            }
+            Game.player.vy += effectiveGravity * dt;
+            Game.player.y += Game.player.vy * dt;
+
+            // Platform Collision Detection
+            let onAnyPlatform = false;
+
+            for (let i = 0; i < Game.platforms.length; i++) {
+              const p = Game.platforms[i];
+              if (Game.player.x + 0.35 >= p.x && Game.player.x - 0.35 <= p.x + p.length) {
+                if (Game.player.y <= p.topY && Game.player.y >= p.topY - 0.8 && Game.player.vy <= 0) {
+                  Game.player.y = p.topY;
+                  Game.player.vy = 0;
+                  onAnyPlatform = true;
+                  break;
+                }
+              }
+            }
+
+            if (onAnyPlatform) {
+              if (!Game.player.onGround) {
+                Game.player.squashX = 1.25;
+                Game.player.squashY = 0.75;
+                audio.playJump();
+              }
+              Game.player.onGround = true;
+              Game.player.jumpsLeft = 2;
+              stopGlide();
+            } else {
+              Game.player.onGround = false;
+            }
+
+            // Pit fall check
+            if (Game.player.y < -5.0) {
+              triggerGameOver();
+            }
+
+            // Squash & stretch recovery spring
+            Game.player.squashX += (1.0 - Game.player.squashX) * 12 * dt;
+            Game.player.squashY += (1.0 - Game.player.squashY) * 12 * dt;
+
+            // Update Player Sprite Position & Scale
+            playerGroup.position.set(Game.player.x, Game.player.y, 0);
+            playerGroup.scale.set(Game.player.squashX, Game.player.squashY, 1.0);
+
+            // Render 2D Side-View Pinkie Frame
+            if (!Game.is3DModel) {
+              Game.animFrame += dt * (speed * 2.2);
+              renderPinkieSideView(Game.spriteCtx, 256, 255, Game.animFrame, Game.isGliding);
+              Game.spriteTexture.needsUpdate = true;
+            } else if (Game.mixer) {
+              Game.mixer.update(dt);
+              if (Game.jumpAction && Game.runAction) {
+                if (!Game.player.onGround && !Game.jumpAction.isRunning()) {
+                  Game.runAction.stop();
+                  Game.jumpAction.play();
+                } else if (Game.player.onGround && !Game.runAction.isRunning()) {
+                  Game.jumpAction.stop();
+                  Game.runAction.play();
+                }
+              }
+            }
+
+            // Collectibles Collision
+            for (let i = Game.collectibles.length - 1; i >= 0; i--) {
+              const c = Game.collectibles[i];
+              c.mesh.rotation.y += 2.5 * dt;
+              const dist = Math.hypot(Game.player.x - c.x, Game.player.y + 0.6 - c.y);
+              if (dist < 1.25) {
+                if (c.type === 'strawberry') {
+                  Game.strawberries = Math.min(3, Game.strawberries + 1);
+                  updateBoostUI();
+                  audio.playStrawberry();
+                  spawnBerryParticles(c.x, c.y);
+                } else if (c.type === 'shield') {
+                  Game.hasShield = true;
+                  updateShieldUI();
+                  audio.playShieldPickup();
+                  spawnSplashes(c.x, c.y, 0xEEF8FF, 15);
+                } else if (c.type === 'gem') {
+                  Game.score += 50;
+                  audio.playGem();
+                  spawnSplashes(c.x, c.y, 0x06D6A0, 12);
+                }
+                scene.remove(c.mesh);
+                Game.collectibles.splice(i, 1);
+              }
+            }
+
+            // Hazards Collision
+            for (let i = Game.hazards.length - 1; i >= 0; i--) {
+              const h = Game.hazards[i];
+              const dist = Math.hypot(Game.player.x - h.x, Game.player.y - h.y);
+              if (dist < 1.15) {
+                if (h.type === 'puddle') {
+                  if (Game.hasShield) {
+                    Game.hasShield = false;
+                    updateShieldUI();
+                    spawnSplashes(h.x, h.y, 0xEEF8FF, 12);
+                  } else {
+                    Game.speedSlowMultiplier = 0.5; // 50% slow down for 1.5s
+                    Game.slowTimer = 1.5;
+                    audio.playPuddleSquish();
+                    spawnSplashes(Game.player.x, Game.player.y, 0x240F0A, 14);
+                  }
+                } else if (h.type === 'hurdle') {
+                  if (Game.hasShield) {
+                    Game.hasShield = false;
+                    updateShieldUI();
+                    spawnSplashes(h.x, h.y, 0xEEF8FF, 12);
+                  } else {
+                    Game.lives--;
+                    updateLivesUI();
+                    audio.playPuddleSquish();
+                    spawnSplashes(h.x, h.y, 0xC98522, 16);
+                    if (Game.lives <= 0) {
+                      triggerGameOver();
+                    }
+                  }
+                  scene.remove(h.mesh);
+                  Game.hazards.splice(i, 1);
+                }
+              }
+            }
+
+            // -------------------------------------------------------------
+            // DYNAMIC TSUNAMI PURSUIT & MENACE PROGRESSION
+            // -------------------------------------------------------------
+            // As distance increases, the tsunami naturally gets faster, closer, and more menacing.
+            // Safe equilibrium distance closes in from ~22m down to ~11m as the player travels further.
+            const dynamicEquilibrium = Math.max(10.5, Game.tsunami.safeEquilibrium - Math.min(11.5, Game.distance * 0.012));
+
+            // Incremental surge multipliers that scale with distance
+            const distScale = Math.min(1.0, Game.distance / 1200);
+            const puddleSurgeSpeed = 3.4 + distScale * 3.6; // 3.4m/s up to 7.0m/s on puddle hits
+            const hazardSurgeSpeed = 2.6 + distScale * 2.8;
+
+            if (Game.isBoosting) {
+              // Strawberry Rocket Boost provides instant breathing room
+              Game.tsunami.distance = Math.min(Game.tsunami.maxDist, Game.tsunami.distance + 8.5 * dt);
+            } else if (Game.slowTimer > 0) {
+              // Molten puddle hit: tsunami surges forward aggressively with distance-scaled speed
+              Game.tsunami.distance -= puddleSurgeSpeed * dt;
+            } else if (Game.speedSlowMultiplier < 1.0) {
+              Game.tsunami.distance -= hazardSurgeSpeed * dt;
+            } else {
+              // NORMAL RUNNING:
+              // Tsunami steadily pursues towards the dynamic equilibrium distance, ramping up chase intensity!
+              if (Game.tsunami.distance > dynamicEquilibrium) {
+                // Tsunami relentlessly advances toward the player as distance builds
+                const pursuitCatchRate = 0.9 + distScale * 2.5;
+                Game.tsunami.distance -= pursuitCatchRate * dt;
+              } else {
+                // When closer than equilibrium, clean running lets the player regain ground
+                const regainRate = Math.max(1.0, 2.2 - distScale * 1.0);
+                Game.tsunami.distance += regainRate * dt;
+              }
+            }
+
+            // Clamp distance within valid bounds
+            Game.tsunami.distance = Math.max(0, Math.min(Game.tsunami.maxDist, Game.tsunami.distance));
+            Game.tsunami.x = Game.player.x - Game.tsunami.distance;
+
+            // Position & scale 2D Side-View Tsunami Wave (menace grows with distance)
+            const menaceScale = 1.0 + Math.min(0.35, Game.distance * 0.0004);
+            tsunamiMesh.scale.set(menaceScale, menaceScale, 1.0);
+            foamMesh.scale.set(menaceScale, menaceScale, menaceScale);
+
+            tsunamiMesh.position.set(Game.tsunami.x, 5.0, 0.2);
+            foamMesh.position.set(Game.tsunami.x + 0.3 * menaceScale, 10.5 * menaceScale, 0.3);
+
+            // Animate wave vertices (undulating molten chocolate, churns faster as distance increases)
+            const time = clock.getElapsedTime();
+            const fluidSpeed = 3.5 + Math.min(3.5, Game.distance * 0.0035);
+            const posAttr = waveGeo.attributes.position;
+            for (let i = 0; i < posAttr.count; i++) {
+              const u = posAttr.getX(i);
+              const v = posAttr.getY(i);
+              const z = Math.sin(u * 0.5 + time * fluidSpeed) * (0.35 * menaceScale) + Math.cos(v * 0.6 + time * (fluidSpeed * 0.8)) * (0.25 * menaceScale);
+              posAttr.setZ(i, z);
+            }
+            posAttr.needsUpdate = true;
+
+            // Hazard warning vignette & label urgency
+            const hazardEl = document.getElementById('hazard-vignette');
+            const hazardLabel = document.getElementById('hazard-label');
+            if (Game.tsunami.distance < 6.8) {
+              hazardEl.classList.add('danger');
+              if (hazardLabel) {
+                if (Game.tsunami.distance < 4.2) {
+                  hazardLabel.textContent = '🚨 DANGER: TSUNAMI BREACH!';
+                  hazardLabel.style.background = 'rgba(230, 10, 10, 0.95)';
+                } else {
+                  hazardLabel.textContent = '⚠️ TSUNAMI CLOSING IN!';
+                  hazardLabel.style.background = 'rgba(220, 20, 20, 0.92)';
+                }
+              }
+            } else {
+              hazardEl.classList.remove('danger');
+            }
+
+            // Only catch player when tsunami physically reaches them
+            if (Game.tsunami.distance <= Game.tsunami.minDist) {
+              triggerGameOver();
+            }
+
+            // Procedural track segment generation
+            if (nextSpawnX - Game.player.x < 45) {
+              generateNextTrackSegment();
+            }
+
+            // Prune old platforms behind player
+            for (let i = Game.platforms.length - 1; i >= 0; i--) {
+              const p = Game.platforms[i];
+              if (p.x + p.length < Game.player.x - 30) {
+                scene.remove(p.mesh);
+                Game.platforms.splice(i, 1);
+              }
+            }
+
+            updateParticles(dt);
+
+            // 2D Camera Follow (Framing for zoomed-out playfield view with generous forward visibility)
+            const targetCamX = Game.player.x + 3.8;
+            const targetCamY = Math.max(4.0, Game.player.y * 0.35 + 3.8);
+            camera.position.x += (targetCamX - camera.position.x) * 8 * dt;
+            camera.position.y += (targetCamY - camera.position.y) * 5 * dt;
+            camera.lookAt(camera.position.x, camera.position.y, 0);
+
+            // Parallax Background Follow
+            bgMesh.position.x = camera.position.x * 0.90;
+            bgMesh.position.y = camera.position.y * 0.22 + 6.0;
+            if (bgMesh.material.map) {
+              bgMesh.material.map.offset.x = (Game.player.x * 0.0015) % 1;
+            }
+
+            dirLight.position.x = camera.position.x + 8;
+            dirLight.position.y = camera.position.y + 12;
+          }
+
+          renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // -------------------------------------------------------------
+        // RESPONSIVE VIEWPORT RESIZING (2D ORTHOGRAPHIC)
+        // -------------------------------------------------------------
+        window.addEventListener('resize', () => {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          const asp = w / h;
+          const vw = VIEW_HEIGHT * asp;
+          camera.left = -vw / 2;
+          camera.right = vw / 2;
+          camera.top = VIEW_HEIGHT / 2;
+          camera.bottom = -VIEW_HEIGHT / 2;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        });
+
+      })();
+    </script>
+  </body>
+</html>

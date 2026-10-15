@@ -1,0 +1,6 @@
+{
+  "name": "SmooCho Runner: Escape the Choco Tsunami",
+  "description": "Mobile-first 2.5D endless runner where Pinkie escapes the delicious melted Choco Tsunami across brownie platforms, kunafa hurdles, and chocolate rivers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
